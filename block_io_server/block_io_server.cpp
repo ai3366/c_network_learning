@@ -15,8 +15,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define SERVER_PORT    6666
-#define LENGTH_OF_LISTEN_QUEUE 20
+#define SERVER_PORT	6666
 #define BUFFER_SIZE 1024
 
 void * loop(void *arg) {
@@ -61,7 +60,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	if (listen(server_socket, LENGTH_OF_LISTEN_QUEUE)) {
+	if (listen(server_socket, 20)) {
 		printf("Server Listen Failed!");
 		exit(1);
 	}
@@ -80,7 +79,7 @@ int main(int argc, char **argv) {
 		}
 
 		conn_count++;
-		printf("conn:%d\n"+conn_count);
+		printf("conn:%d\n",conn_count);
 
 		pthread_t tid;
 

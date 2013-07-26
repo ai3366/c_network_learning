@@ -2,7 +2,7 @@ CXXFLAGS =	-O2 -g -Wall -fmessage-length=0
 
 OBJS =		block_io_client.o
 
-LIBS =
+LIBS =	-pthread
 
 TARGET =	block_io_client
 

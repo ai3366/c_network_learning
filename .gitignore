@@ -1,1 +1,3 @@
 .metadata/*
+/block_io_server/.settings
+/.metadata
