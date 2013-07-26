@@ -22,16 +22,18 @@ void * loop(void *arg) {
 	int socket = *((int *)arg);
 	char buffer[BUFFER_SIZE];
 	int len;
+	int count = 0;
 	while (1) {
 		bzero(buffer, BUFFER_SIZE);
-		if ((len = recv(socket, buffer, BUFFER_SIZE, 0)) < 0) {
+		if ((len = recv(socket, buffer, BUFFER_SIZE, 0)) <= 0) {
 			printf("Receive Data Failed!\n");
 			break;
 		}
-		if (send(socket, buffer, len, 0) < 0) {
+		if (send(socket, buffer, len, 0) <= 0) {
 			printf("Send Failed:%s\n", buffer);
 			break;
 		}
+		
 	}
 	close (socket);
 	return NULL;
@@ -90,7 +92,6 @@ int main(int argc, char **argv) {
 		}
 
 	}
-	close(server_socket);
 	return 0;
 }
 
