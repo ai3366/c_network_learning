@@ -19,12 +19,18 @@
 #define SERVER_PORT	6666
 #define BUFFER_SIZE 1024
 
+class Session{
+public:
+	int socket;
+};
+
 void * loop(void *arg) {
-	int socket = *((int *) arg);
+	Session *s = (Session *) arg;
+	int socket = s->socket;
+	delete s;
 	char buffer[BUFFER_SIZE];
 	int len;
 	char *text = (char *)"hello";
-	int count=0;
 	while (1) {
 
 		if (send(socket, text, 5, 0) <= 0) {
@@ -50,7 +56,6 @@ int main(int argc, char **argv) {
 
 	printf("connect %s\n",argv[1]);
 	
-	
 	while (1) {
 		struct sockaddr_in server_addr;
 		bzero(&server_addr, sizeof(server_addr));
@@ -58,13 +63,14 @@ int main(int argc, char **argv) {
 		server_addr.sin_addr.s_addr = inet_addr(argv[1]);
 		server_addr.sin_port = htons(SERVER_PORT);
 
-		int socket_fd = socket(PF_INET, SOCK_STREAM, 0);
-		if (socket_fd < 0) {
+		Session *s = new Session();
+		s->socket = socket(PF_INET, SOCK_STREAM, 0);
+		if (s->socket < 0) {
 			printf("Create Socket Failed!");
 			exit(1);
 		}
 
-		if (connect(socket_fd, (struct sockaddr*) &server_addr,
+		if (connect(s->socket, (struct sockaddr*) &server_addr,
 				sizeof(server_addr))) {
 			printf("connect failed!");
 			exit(1);
@@ -73,16 +79,12 @@ int main(int argc, char **argv) {
 		conn_count++;
 		printf("conn:%d\n", conn_count);
 		pthread_t tid;
-		if (pthread_create(&tid, NULL, loop, (void *) &socket_fd) != 0) {
+		if (pthread_create(&tid, NULL, loop, (void *) s) != 0) {
 			printf("create thread fail");
 			break;
 		}
 
 		//break;
-	}
-
-	while(1){
-		sleep(1);
 	}
 
 	return 0;
