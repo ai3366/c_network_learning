@@ -18,11 +18,16 @@
 #define SERVER_PORT	6666
 #define BUFFER_SIZE 1024
 
+class Session{
+public:
+	int socket;
+};
+
 void * loop(void *arg) {
-	int socket = *((int *)arg);
+	Session *s=(Session *)arg;
+	int socket = s->socket;
 	char buffer[BUFFER_SIZE];
 	int len;
-	int count = 0;
 	while (1) {
 		bzero(buffer, BUFFER_SIZE);
 		if ((len = recv(socket, buffer, BUFFER_SIZE, 0)) <= 0) {
@@ -73,9 +78,10 @@ int main(int argc, char **argv) {
 		struct sockaddr_in client_addr;
 		socklen_t length = sizeof(client_addr);
 
-		int new_server_socket = accept(server_socket,
+		Session *s=new Session();
+		s->socket = accept(server_socket,
 				(struct sockaddr*) &client_addr, &length);
-		if (new_server_socket < 0) {
+		if (s->socket < 0) {
 			printf("Server Accept Failed!\n");
 			break;
 		}
@@ -85,7 +91,7 @@ int main(int argc, char **argv) {
 
 		pthread_t tid;
 
-		if (pthread_create(&tid, NULL, loop, (void *) &new_server_socket)
+		if (pthread_create(&tid, NULL, loop, (void *) s)
 				!= 0) {
 			printf("create thread fail");
 			break;
