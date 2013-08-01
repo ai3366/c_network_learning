@@ -15,20 +15,28 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 
 #define SERVER_PORT	6666
 #define BUFFER_SIZE 1024
 
+struct socket_h {
+	int socket;
+};
+
 void * loop(void *arg) {
-	int socket = *((int *) arg);
+	socket_h *socket_fd = (socket_h *)arg;
+	int socket=socket_fd->socket;
+	free(arg);
 	char buffer[BUFFER_SIZE];
 	int len;
-	char *text = (char *)"hello";
-	int count=0;
+	char *text = (char *) "hello";
+	//int count=0;
+	int ret = 0;
 	while (1) {
 
-		if (send(socket, text, 5, 0) <= 0) {
-			printf("Send Failed:%s\n", text);
+		if ((ret = send(socket, text, 5, 0)) <= 0) {
+			printf("Send Failed, ret:%d, socket:%d\n", ret,socket);
 			break;
 		}
 
@@ -37,20 +45,21 @@ void * loop(void *arg) {
 			printf("Receive Data Failed!\n");
 			break;
 		}
-
+		//printf("socket alive:%d\n", socket);
 		sleep(1);
 	}
-	close(socket);
+
+	if (close(socket) != 0)
+		printf("close socket %d error\n", socket);
 	return NULL;
 }
+
 
 int main(int argc, char **argv) {
 
 	int conn_count = 0;
 
-	printf("connect %s\n",argv[1]);
-	
-	
+	printf("connect %s\n", argv[1]);
 	while (1) {
 		struct sockaddr_in server_addr;
 		bzero(&server_addr, sizeof(server_addr));
@@ -58,31 +67,36 @@ int main(int argc, char **argv) {
 		server_addr.sin_addr.s_addr = inet_addr(argv[1]);
 		server_addr.sin_port = htons(SERVER_PORT);
 
-		int socket_fd = socket(PF_INET, SOCK_STREAM, 0);
-		if (socket_fd < 0) {
+		printf("create socket...\n");
+
+		socket_h * sh=(socket_h *)malloc(sizeof(socket_h));
+		sh->socket = socket(PF_INET, SOCK_STREAM, 0);
+		if (sh->socket < 0) {
 			printf("Create Socket Failed!");
 			exit(1);
 		}
 
-		if (connect(socket_fd, (struct sockaddr*) &server_addr,
-				sizeof(server_addr))) {
+		printf("connect...use socket:%d,%p\n",sh->socket,sh);
+		if (connect(sh->socket, (struct sockaddr*) &server_addr,
+				sizeof(server_addr)) != 0) {
 			printf("connect failed!");
-			exit(1);
+			if (errno != EINPROGRESS) {
+				perror("connect");
+				break;
+			}
 		}
 
-		conn_count++;
-		printf("conn:%d\n", conn_count);
 		pthread_t tid;
-		if (pthread_create(&tid, NULL, loop, (void *) &socket_fd) != 0) {
+		if (pthread_create(&tid, NULL, loop, (void *) sh) != 0) {
 			printf("create thread fail");
 			break;
 		}
 
-		//break;
-	}
+		conn_count++;
+		printf("new tid:%ld, conn:%d\n", (unsigned long) tid, conn_count);
 
-	while(1){
-		sleep(1);
+		//sleep(1);
+		//break;
 	}
 
 	return 0;
