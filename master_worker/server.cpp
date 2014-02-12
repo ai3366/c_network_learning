@@ -14,8 +14,6 @@
 #define	MAX_EVENTS 64
 #define WORKERS 4
 
-int worker_epollfds[WORKERS];
-
 int create_socket(int port) {
 	struct sockaddr_in server_addr;
 	bzero(&server_addr, sizeof(server_addr));
@@ -62,18 +60,15 @@ int accept_handle(int efd, int server_socket)
 		return -1;
 	}
 	
+	struct epoll_event event;
+	event.data.fd = client_socket;
+	event.events = EPOLLIN | EPOLLET;
+	epoll_ctl(efd,EPOLL_CTL_ADD, client_socket,&event);
 
 	return client_socket;
 
 }
 
-void to_worker(int client_socket, int client_epollfd)
-{
-	struct epoll_event event;
-	event.data.fd = client_socket;
-	event.events = EPOLLIN | EPOLLET;
-	epoll_ctl(client_epollfd,EPOLL_CTL_ADD, client_socket,&event);
-}
 
 void read_handle(int socket)
 {
@@ -81,7 +76,7 @@ void read_handle(int socket)
 	memset(buf,0,BUFFER_SIZE);
 	int count = read(socket,buf,BUFFER_SIZE);
 	if(count > 0)
-		printf("recv: %s\n",buf);
+		printf("pid:%d,recv:%s",getpid(),buf);
 }
 
 void server_event_start(int socket)
@@ -95,7 +90,6 @@ void server_event_start(int socket)
 	struct epoll_event *recv_events;
 	recv_events = (epoll_event*) calloc(MAX_EVENTS , sizeof(epoll_event));
 
-	int worker_index = 0;
 	while(true)
 	{
 		int n = epoll_wait(efd, recv_events, MAX_EVENTS, -1);
@@ -103,14 +97,9 @@ void server_event_start(int socket)
 		{
 			if(socket == recv_events[i].data.fd)
 			{
-				int client_socket  = accept_handle(efd,socket);
-				if(client_socket > 0)
-				{
-					to_worker(client_socket, worker_epollfds[worker_index]);
-					worker_index++;
-					if(worker_index >= WORKERS)
-						worker_index = 0;
-				}
+				accept_handle(efd,socket);
+			}else{
+				read_handle(recv_events[i].data.fd);
 			}
 		}
 	}
@@ -119,23 +108,6 @@ void server_event_start(int socket)
 
 }
 
-void worker_event_loop(int worker_epollfd)
-{
-	struct epoll_event *recv_events;
-	recv_events = (epoll_event*) calloc(MAX_EVENTS , sizeof(epoll_event));
-
-	while(true)
-	{
-		int n = epoll_wait(worker_epollfd, recv_events, MAX_EVENTS, -1);
-		printf("worker pid: %d, epoll_wait return %d\n",getpid(),n);
-		for(int i = 0; i<n; i++)
-		{
-			read_handle(recv_events[i].data.fd);
-		}
-	}
-
-	close(worker_epollfd);
-}
 
 int main(int argc, char *argv[])
 {
@@ -158,12 +130,10 @@ int main(int argc, char *argv[])
 	
 	for(int i=0; i<WORKERS; ++i)
 	{
-		worker_epollfds[i] = epoll_create1 (0);
-		pid_t fpid =  fork();
-		if(0 == fpid)
+		if(0 == fork())
 		{
 			//worker 进程
-			worker_event_loop(worker_epollfds[i]);
+			server_event_start(server_socket);
 			exit(1);
 		}else{
 
@@ -171,7 +141,8 @@ int main(int argc, char *argv[])
 
 	}
 
-	server_event_start(server_socket);
+	while(1)
+		sleep(1);
 
 	close(server_socket);
 	
