@@ -15,30 +15,23 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define SERVER_PORT	6666
+#define SERVER_PORT	7000
 #define BUFFER_SIZE 1024
 
-class Session{
-public:
-	int socket;
-};
-
 void * loop(void *arg) {
-	Session *s=(Session *)arg;
-	int socket = s->socket;
+	int socket = *((int *)arg);
 	char buffer[BUFFER_SIZE];
 	int len;
 	while (1) {
 		bzero(buffer, BUFFER_SIZE);
-		if ((len = recv(socket, buffer, BUFFER_SIZE, 0)) <= 0) {
+		if ((len = recv(socket, buffer, BUFFER_SIZE, 0)) < 0) {
 			printf("Receive Data Failed!\n");
 			break;
 		}
-		if (send(socket, buffer, len, 0) <= 0) {
+		if (send(socket, buffer, len, 0) < 0) {
 			printf("Send Failed:%s\n", buffer);
 			break;
 		}
-		
 	}
 	close (socket);
 	return NULL;
@@ -78,10 +71,9 @@ int main(int argc, char **argv) {
 		struct sockaddr_in client_addr;
 		socklen_t length = sizeof(client_addr);
 
-		Session *s=new Session();
-		s->socket = accept(server_socket,
+		int new_server_socket = accept(server_socket,
 				(struct sockaddr*) &client_addr, &length);
-		if (s->socket < 0) {
+		if (new_server_socket < 0) {
 			printf("Server Accept Failed!\n");
 			break;
 		}
@@ -91,13 +83,14 @@ int main(int argc, char **argv) {
 
 		pthread_t tid;
 
-		if (pthread_create(&tid, NULL, loop, (void *) s)
+		if (pthread_create(&tid, NULL, loop, (void *) &new_server_socket)
 				!= 0) {
 			printf("create thread fail");
 			break;
 		}
 
 	}
+	close(server_socket);
 	return 0;
 }
 
